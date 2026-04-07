@@ -145,24 +145,36 @@ const LostProjectDashboard = () => {
   // ════ STATE ════
   const [activeTab, setActiveTab] = useState('inicio');
   const [year2026View, setYear2026View] = useState(true);
-  const [pending, setPending] = useState([]);
+  const [pending, setPending] = useState(() => { try { const s = localStorage.getItem('lp_pending'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
   const [showPendingForm, setShowPendingForm] = useState(false);
-  const [pendingTitle, setPendingTitle] = useState('');
-  const [fixedExpenses, setFixedExpenses] = useState([
-    { nombre: 'Renta', categoria: 'Local', monto: 12000 },
-    { nombre: 'Servicios (luz, internet)', categoria: 'Local', monto: 2500 },
-    { nombre: 'Nómina Ana Sofía', categoria: 'Equipo', monto: 8000 },
-    { nombre: 'Canva + Edición', categoria: 'Herramientas', monto: 1500 },
-  ]);
+  const pendingTitleRef = React.useRef(null);
+  const [fixedExpenses, setFixedExpenses] = useState(() => {
+    try {
+      const s = localStorage.getItem('lp_fixedExpenses');
+      return s ? JSON.parse(s) : [
+        { nombre: 'Renta', categoria: 'Local', monto: 12000 },
+        { nombre: 'Servicios (luz, internet)', categoria: 'Local', monto: 2500 },
+        { nombre: 'Nómina Ana Sofía', categoria: 'Equipo', monto: 8000 },
+        { nombre: 'Canva + Edición', categoria: 'Herramientas', monto: 1500 },
+      ];
+    } catch(e) {
+      return [
+        { nombre: 'Renta', categoria: 'Local', monto: 12000 },
+        { nombre: 'Servicios (luz, internet)', categoria: 'Local', monto: 2500 },
+        { nombre: 'Nómina Ana Sofía', categoria: 'Equipo', monto: 8000 },
+        { nombre: 'Canva + Edición', categoria: 'Herramientas', monto: 1500 },
+      ];
+    }
+  });
   const [sugPage, setSugPage] = useState(0);
 
   // ── Marketing: tracker de contenido ──
-  const [contentTracker, setContentTracker] = useState([]);
+  const [contentTracker, setContentTracker] = useState(() => { try { const s = localStorage.getItem('lp_contentTracker'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
   const [showFormContent, setShowFormContent] = useState(false);
   const [newContent, setNewContent] = useState({ dia: 'Lunes', pilar: 'Entretenimiento', formato: 'Reel', descripcion: '' });
 
   // ── Marketing: colaboraciones / influencers ──
-  const [collabs, setCollabs] = useState([]);
+  const [collabs, setCollabs] = useState(() => { try { const s = localStorage.getItem('lp_collabs'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
   const [showFormCollab, setShowFormCollab] = useState(false);
   const [newCollab, setNewCollab] = useState({ influencer: '', plataforma: 'Instagram', seguidores: '', producto: '', costo: '', ventasGeneradas: '', estado: 'Enviado', notas: '' });
 
@@ -180,15 +192,15 @@ const LostProjectDashboard = () => {
   const [metaPctTope, setMetaPctTope] = useState(12);
 
   // ── Activos: inventario, mobiliario, pasivos ──
-  const [mobiliario, setMobiliario] = useState([
+  const [mobiliario, setMobiliario] = useState(() => { try { const s = localStorage.getItem('lp_mobiliario'); if (s) return JSON.parse(s); } catch(e) {} return [
     { nombre: 'Estantes de exhibición', categoria: 'Mobiliario', cantidad: 4, costoUnit: 3500, fechaCompra: '2025-01-15', ubicacion: 'Tienda', id: 1 },
     { nombre: 'Computadora (punto de venta)', categoria: 'Equipo', cantidad: 1, costoUnit: 18000, fechaCompra: '2025-03-01', ubicacion: 'Tienda', id: 2 },
     { nombre: 'Cámara para contenido', categoria: 'Equipo', cantidad: 1, costoUnit: 12000, fechaCompra: '2025-06-10', ubicacion: 'Oficina', id: 3 },
     { nombre: 'Maniquíes', categoria: 'Mobiliario', cantidad: 3, costoUnit: 2800, fechaCompra: '2025-01-15', ubicacion: 'Tienda', id: 4 },
-  ]);
+  ]; });
   const [showFormMob, setShowFormMob] = useState(false);
   const [newMob, setNewMob] = useState({ nombre: '', categoria: 'Mobiliario', cantidad: 1, costoUnit: '', fechaCompra: '', ubicacion: 'Tienda' });
-  const [pasivos, setPasivos] = useState([]);
+  const [pasivos, setPasivos] = useState(() => { try { const s = localStorage.getItem('lp_pasivos'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
   const [showFormPasivo, setShowFormPasivo] = useState(false);
   const [newPasivo, setNewPasivo] = useState({ concepto: '', tipo: 'Préstamo', monto: '', montoPagado: 0, acreedor: '', fechaInicio: '', fechaVence: '', notas: '' });
   const [efectivoCaja, setEfectivoCaja] = useState(0);
@@ -196,14 +208,24 @@ const LostProjectDashboard = () => {
   const [cuentasPorCobrar, setCuentasPorCobrar] = useState(0);
 
   // Gastos variables recurrentes — estado compartido (fuente: Marketing, consumido por Gastos)
-  const [recurrentes, setRecurrentes] = useState([
+  const [recurrentes, setRecurrentes] = useState(() => { try { const s = localStorage.getItem('lp_recurrentes'); if (s) return JSON.parse(s); } catch(e) {} return [
     { mes: 0, concepto: 'Inversión Meta Ads', monto: 8500 },
     { mes: 0, concepto: 'Comisión Clip', monto: 4200 },
     { mes: 1, concepto: 'Inversión Meta Ads', monto: 9200 },
     { mes: 1, concepto: 'Comisión Clip', monto: 3500 },
     { mes: 2, concepto: 'Inversión Meta Ads', monto: 7000 },
     { mes: 2, concepto: 'Comisión Clip', monto: 2900 },
-  ]);
+  ]; });
+
+  // ════ PERSISTENCIA LOCAL ════
+  // Guardar en localStorage cuando cambian los datos
+  useEffect(() => { try { localStorage.setItem('lp_pending', JSON.stringify(pending)); } catch(e) {} }, [pending]);
+  useEffect(() => { try { localStorage.setItem('lp_fixedExpenses', JSON.stringify(fixedExpenses)); } catch(e) {} }, [fixedExpenses]);
+  useEffect(() => { try { localStorage.setItem('lp_recurrentes', JSON.stringify(recurrentes)); } catch(e) {} }, [recurrentes]);
+  useEffect(() => { try { localStorage.setItem('lp_mobiliario', JSON.stringify(mobiliario)); } catch(e) {} }, [mobiliario]);
+  useEffect(() => { try { localStorage.setItem('lp_pasivos', JSON.stringify(pasivos)); } catch(e) {} }, [pasivos]);
+  useEffect(() => { try { localStorage.setItem('lp_contentTracker', JSON.stringify(contentTracker)); } catch(e) {} }, [contentTracker]);
+  useEffect(() => { try { localStorage.setItem('lp_collabs', JSON.stringify(collabs)); } catch(e) {} }, [collabs]);
 
   // ════ UTILS ════
   const formatMXN = (num) => {
@@ -631,17 +653,18 @@ const LostProjectDashboard = () => {
             <div style={{ marginBottom: '12px', padding: '12px', background: colors.bg3, borderRadius: '8px' }}>
               <input
                 type="text"
-                value={pendingTitle}
-                onChange={(e) => setPendingTitle(e.target.value)}
+                ref={pendingTitleRef}
                 placeholder="Descripción de la tarea..."
+                onKeyDown={(e) => { if (e.key === 'Enter') { const val = pendingTitleRef.current?.value?.trim(); if (val) { setPending(prev => [...prev, { id: Date.now(), title: val, done: false }]); pendingTitleRef.current.value = ''; setShowPendingForm(false); } } }}
                 style={{ width: '100%', padding: '8px', background: colors.bg1, border: `1px solid ${colors.br2}`, borderRadius: '6px', color: colors.t1, fontFamily: 'Inter, sans-serif' }}
               />
               <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
                 <button
                   onClick={() => {
-                    if (pendingTitle) {
-                      setPending([...pending, { id: Date.now(), title: pendingTitle, done: false }]);
-                      setPendingTitle('');
+                    const val = pendingTitleRef.current?.value?.trim();
+                    if (val) {
+                      setPending(prev => [...prev, { id: Date.now(), title: val, done: false }]);
+                      pendingTitleRef.current.value = '';
                       setShowPendingForm(false);
                     }
                   }}
@@ -1278,8 +1301,12 @@ const LostProjectDashboard = () => {
     const recurrentesMes = recurrentes.filter(g => g.mes === mes);
     const totalRecurrentesMes = recurrentesMes.reduce((a, g) => a + g.monto, 0);
 
-    // Gastos del día a día (vacío por ahora, se irán agregando)
-    const gastosDiarios = [];
+    // Gastos del día a día
+    const [gastosDiarios, setGastosDiarios] = React.useState(() => {
+      try { const s = localStorage.getItem('lp_gastosDiarios'); return s ? JSON.parse(s) : []; } catch(e) { return []; }
+    });
+    const [showFormGasto, setShowFormGasto] = React.useState(false);
+    const [newGasto, setNewGasto] = React.useState({ fecha: new Date().toISOString().split('T')[0], concepto: '', categoria: 'Empaque', monto: '' });
     const totalDiariosMes = gastosDiarios.reduce((a, g) => a + g.monto, 0);
 
     const totalVarMes = totalRecurrentesMes + totalDiariosMes;
@@ -1621,8 +1648,41 @@ const LostProjectDashboard = () => {
               <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '4px' }}>Gastos del día a día</h3>
               <div style={{ fontSize: '12px', color: colors.t2 }}>Empaques, envíos, mantenimiento y otros gastos que surjan</div>
             </div>
-            <button style={buttonStyle('gold')}>+ Registrar gasto</button>
+            <button style={buttonStyle('gold')} onClick={() => setShowFormGasto(!showFormGasto)}>{showFormGasto ? '\u2715 Cerrar' : '+ Registrar gasto'}</button>
           </div>
+          {showFormGasto && (
+            <div style={{ padding: '16px', background: colors.bg1, borderRadius: '10px', border: `1px solid ${colors.br}`, marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', color: colors.gold, marginBottom: '12px' }}>Nuevo gasto</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: colors.t2, marginBottom: '4px', display: 'block' }}>Fecha</label>
+                  <input type="date" style={{ width: '100%', background: colors.bg2, color: colors.t1, border: `1px solid ${colors.br}`, borderRadius: '6px', padding: '8px 12px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} value={newGasto.fecha} onChange={(e) => setNewGasto({...newGasto, fecha: e.target.value})} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: colors.t2, marginBottom: '4px', display: 'block' }}>Concepto *</label>
+                  <input style={{ width: '100%', background: colors.bg2, color: colors.t1, border: `1px solid ${colors.br}`, borderRadius: '6px', padding: '8px 12px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} placeholder="Descripci\u00F3n del gasto" value={newGasto.concepto} onChange={(e) => setNewGasto({...newGasto, concepto: e.target.value})} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: colors.t2, marginBottom: '4px', display: 'block' }}>Categor\u00EDa</label>
+                  <select style={{ width: '100%', background: colors.bg2, color: colors.t1, border: `1px solid ${colors.br}`, borderRadius: '6px', padding: '8px 12px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }} value={newGasto.categoria} onChange={(e) => setNewGasto({...newGasto, categoria: e.target.value})}>
+                    {['Empaque', 'Env\u00EDo', 'Mantenimiento', 'Comida', 'Transporte', 'Insumos', 'Otro'].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '600', color: colors.t2, marginBottom: '4px', display: 'block' }}>Monto MXN *</label>
+                  <input type="number" style={{ width: '100%', background: colors.bg2, color: colors.t1, border: `1px solid ${colors.br}`, borderRadius: '6px', padding: '8px 12px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} placeholder="0" value={newGasto.monto} onChange={(e) => setNewGasto({...newGasto, monto: e.target.value})} />
+                </div>
+              </div>
+              <button style={{ ...buttonStyle('gold'), padding: '8px 24px' }} onClick={() => {
+                if (!newGasto.concepto || !newGasto.monto) return;
+                const gastos = [...gastosDiarios, { ...newGasto, monto: parseInt(newGasto.monto) || 0 }];
+                setGastosDiarios(gastos);
+                try { localStorage.setItem('lp_gastosDiarios', JSON.stringify(gastos)); } catch(e) {}
+                setNewGasto({ fecha: new Date().toISOString().split('T')[0], concepto: '', categoria: 'Empaque', monto: '' });
+                setShowFormGasto(false);
+              }}>Guardar gasto</button>
+            </div>
+          )}
           {gastosDiarios.length > 0 ? (
             <div style={{ overflowX: 'auto' }}>
               <table style={tableStyle}>
@@ -1660,9 +1720,9 @@ const LostProjectDashboard = () => {
 
   const ComprasSection = () => {
     // Estado de compras activas e historial
-    const [comprasActivas, setComprasActivas] = React.useState([]);
-    const [comprasHistorial, setComprasHistorial] = React.useState([]);
-    const [proveedores, setProveedores] = React.useState([]);
+    const [comprasActivas, setComprasActivas] = React.useState(() => { try { const s = localStorage.getItem('lp_comprasActivas'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
+    const [comprasHistorial, setComprasHistorial] = React.useState(() => { try { const s = localStorage.getItem('lp_comprasHistorial'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
+    const [proveedores, setProveedores] = React.useState(() => { try { const s = localStorage.getItem('lp_proveedores'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
     const [showFormCompra, setShowFormCompra] = React.useState(false);
     const [showFormProv, setShowFormProv] = React.useState(false);
 
@@ -1695,26 +1755,34 @@ const LostProjectDashboard = () => {
     const METODOS_PAGO = ['Transferencia', 'Tarjeta de crédito', 'Tarjeta de débito', 'PayPal', 'Efectivo', 'Otro'];
 
     // Formulario nueva compra
-    const [newCompra, setNewCompra] = React.useState({ proveedor: '', productos: '', monto: '', metodoPago: 'Transferencia', numPedido: '', paqueteria: '', guia: '', estado: 'Pedido', comentarios: '' });
+    const [newCompra, setNewCompra] = React.useState({ proveedor: '', productos: '', monto: '', metodoPago: 'Transferencia', numPedido: '', paqueteria: '', guia: '', estado: 'Pedido', comentarios: '', fechaCompra: new Date().toISOString().split('T')[0], fechaEstimadaEntrega: '' });
 
     const guardarCompra = () => {
       if (!newCompra.proveedor || !newCompra.productos) return;
-      setComprasActivas(prev => [...prev, { ...newCompra, monto: parseInt(newCompra.monto) || 0, fecha: new Date().toISOString().split('T')[0] }]);
-      setNewCompra({ proveedor: '', productos: '', monto: '', metodoPago: 'Transferencia', numPedido: '', paqueteria: '', guia: '', estado: 'Pedido', comentarios: '' });
+      const compra = { ...newCompra, monto: parseInt(newCompra.monto) || 0 };
+      const newActivas = [...comprasActivas, compra];
+      setComprasActivas(newActivas);
+      try { localStorage.setItem('lp_comprasActivas', JSON.stringify(newActivas)); } catch(e) {}
+      setNewCompra({ proveedor: '', productos: '', monto: '', metodoPago: 'Transferencia', numPedido: '', paqueteria: '', guia: '', estado: 'Pedido', comentarios: '', fechaCompra: new Date().toISOString().split('T')[0], fechaEstimadaEntrega: '' });
       setShowFormCompra(false);
     };
 
     // Marcar como entregado → mover a historial
     const marcarEntregado = (idx) => {
       const compra = { ...comprasActivas[idx], estado: 'Entregado' };
-      setComprasHistorial(prev => [compra, ...prev]);
-      setComprasActivas(prev => prev.filter((_, i) => i !== idx));
+      const newHistorial = [compra, ...comprasHistorial];
+      const newActivas = comprasActivas.filter((_, i) => i !== idx);
+      setComprasHistorial(newHistorial);
+      setComprasActivas(newActivas);
+      try { localStorage.setItem('lp_comprasHistorial', JSON.stringify(newHistorial)); localStorage.setItem('lp_comprasActivas', JSON.stringify(newActivas)); } catch(e) {}
     };
 
     // Cambiar estado de compra
     const cambiarEstado = (idx, nuevoEstado) => {
       if (nuevoEstado === 'Entregado') { marcarEntregado(idx); return; }
-      setComprasActivas(prev => prev.map((c, i) => i === idx ? { ...c, estado: nuevoEstado } : c));
+      const newActivas = comprasActivas.map((c, i) => i === idx ? { ...c, estado: nuevoEstado } : c);
+      setComprasActivas(newActivas);
+      try { localStorage.setItem('lp_comprasActivas', JSON.stringify(newActivas)); } catch(e) {}
     };
 
     // Formulario nuevo proveedor
@@ -1722,7 +1790,9 @@ const LostProjectDashboard = () => {
 
     const guardarProv = () => {
       if (!newProv.nombre) return;
-      setProveedores(prev => [...prev, { ...newProv }]);
+      const newProvs = [...proveedores, { ...newProv }];
+      setProveedores(newProvs);
+      try { localStorage.setItem('lp_proveedores', JSON.stringify(newProvs)); } catch(e) {}
       setNewProv({ nombre: '', sitioWeb: '', contacto: '', whatsapp: '', tiempoEntrega: '', condiciones: '', notas: '' });
       setShowFormProv(false);
     };
@@ -1779,7 +1849,15 @@ const LostProjectDashboard = () => {
                   <input style={inputStyle} placeholder="Opcional" value={newCompra.numPedido} onChange={(e) => setNewCompra({ ...newCompra, numPedido: e.target.value })} />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Fecha de compra</label>
+                  <input type="date" style={inputStyle} value={newCompra.fechaCompra} onChange={(e) => setNewCompra({ ...newCompra, fechaCompra: e.target.value })} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Entrega estimada</label>
+                  <input type="date" style={inputStyle} value={newCompra.fechaEstimadaEntrega} onChange={(e) => setNewCompra({ ...newCompra, fechaEstimadaEntrega: e.target.value })} />
+                </div>
                 <div>
                   <label style={labelStyle}>Paquetería</label>
                   <input style={inputStyle} placeholder="DHL, Fedex..." value={newCompra.paqueteria} onChange={(e) => setNewCompra({ ...newCompra, paqueteria: e.target.value })} />
@@ -1812,6 +1890,8 @@ const LostProjectDashboard = () => {
                     <th style={thStyle}>Proveedor</th>
                     <th style={thStyle}>Productos</th>
                     <th style={{ ...thStyle, textAlign: 'right' }}>Monto</th>
+                    <th style={thStyle}>F. Compra</th>
+                    <th style={thStyle}>F. Entrega est.</th>
                     <th style={thStyle}>Pago</th>
                     <th style={thStyle}># Pedido</th>
                     <th style={thStyle}>Paquetería</th>
@@ -1827,6 +1907,8 @@ const LostProjectDashboard = () => {
                       <td style={{ ...tdStyle, fontWeight: '600' }}>{c.proveedor}</td>
                       <td style={tdStyle}>{c.productos}</td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>{formatMXN(c.monto)}</td>
+                      <td style={tdStyle}>{c.fechaCompra || '—'}</td>
+                      <td style={tdStyle}>{c.fechaEstimadaEntrega || '—'}</td>
                       <td style={tdStyle}>
                         <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '3px', background: 'rgba(59,130,246,0.1)', color: colors.blue, border: '1px solid rgba(59,130,246,0.2)' }}>{c.metodoPago || '—'}</span>
                       </td>
