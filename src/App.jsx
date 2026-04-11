@@ -33,6 +33,37 @@ const LostProjectDashboard = () => {
   const SHOPIFY_API_URL = 'https://lost-project-api.vercel.app/api/shopify';
   const STORE_DOMAIN = 'true-house-1052.myshopify.com';
 
+  // ════ SUPABASE CONFIG ════
+  const SUPABASE_URL = 'https://hrhccvuhnedahznewgaj.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyaGNjdnVobmVkYWh6bmV3Z2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MTc2MTAsImV4cCI6MjA5MTE5MzYxMH0.rJNz0WLnJMBKSliMddrw_6JlFfs49cl4e_Q9RbAqMbs';
+
+  // Helper: read from Supabase
+  const supaRead = async (key) => {
+    try {
+      const resp = await fetch(SUPABASE_URL + '/rest/v1/dashboard_data?key=eq.' + key + '&select=value', {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
+      });
+      const rows = await resp.json();
+      return rows.length > 0 ? rows[0].value : null;
+    } catch(e) { console.error('supaRead error:', e); return null; }
+  };
+
+  // Helper: write to Supabase (upsert)
+  const supaWrite = async (key, value) => {
+    try {
+      await fetch(SUPABASE_URL + '/rest/v1/dashboard_data', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({ key, value })
+      });
+    } catch(e) { console.error('supaWrite error:', e); }
+  };
+
   // ════ DATA STORE CENTRALIZADO ════
   // Todos los datos de Shopify viven aquí — cuando conectemos la API, solo se actualiza este state
   const DEFAULT_DATA = {
@@ -145,36 +176,24 @@ const LostProjectDashboard = () => {
   // ════ STATE ════
   const [activeTab, setActiveTab] = useState('inicio');
   const [year2026View, setYear2026View] = useState(true);
-  const [pending, setPending] = useState(() => { try { const s = localStorage.getItem('lp_pending'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
+  const [pending, setPending] = useState([]);
   const [showPendingForm, setShowPendingForm] = useState(false);
   const pendingTitleRef = React.useRef(null);
-  const [fixedExpenses, setFixedExpenses] = useState(() => {
-    try {
-      const s = localStorage.getItem('lp_fixedExpenses');
-      return s ? JSON.parse(s) : [
-        { nombre: 'Renta', categoria: 'Local', monto: 12000 },
-        { nombre: 'Servicios (luz, internet)', categoria: 'Local', monto: 2500 },
-        { nombre: 'Nómina Ana Sofía', categoria: 'Equipo', monto: 8000 },
-        { nombre: 'Canva + Edición', categoria: 'Herramientas', monto: 1500 },
-      ];
-    } catch(e) {
-      return [
-        { nombre: 'Renta', categoria: 'Local', monto: 12000 },
-        { nombre: 'Servicios (luz, internet)', categoria: 'Local', monto: 2500 },
-        { nombre: 'Nómina Ana Sofía', categoria: 'Equipo', monto: 8000 },
-        { nombre: 'Canva + Edición', categoria: 'Herramientas', monto: 1500 },
-      ];
-    }
-  });
+  const [fixedExpenses, setFixedExpenses] = useState([
+    { nombre: 'Renta', categoria: 'Local', monto: 12000 },
+    { nombre: 'Servicios (luz, internet)', categoria: 'Local', monto: 2500 },
+    { nombre: 'Nómina Ana Sofía', categoria: 'Equipo', monto: 8000 },
+    { nombre: 'Canva + Edición', categoria: 'Herramientas', monto: 1500 },
+  ]);
   const [sugPage, setSugPage] = useState(0);
 
   // ── Marketing: tracker de contenido ──
-  const [contentTracker, setContentTracker] = useState(() => { try { const s = localStorage.getItem('lp_contentTracker'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
+  const [contentTracker, setContentTracker] = useState([]);
   const [showFormContent, setShowFormContent] = useState(false);
   const [newContent, setNewContent] = useState({ dia: 'Lunes', pilar: 'Entretenimiento', formato: 'Reel', descripcion: '' });
 
   // ── Marketing: colaboraciones / influencers ──
-  const [collabs, setCollabs] = useState(() => { try { const s = localStorage.getItem('lp_collabs'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
+  const [collabs, setCollabs] = useState([]);
   const [showFormCollab, setShowFormCollab] = useState(false);
   const [newCollab, setNewCollab] = useState({ influencer: '', plataforma: 'Instagram', seguidores: '', producto: '', costo: '', ventasGeneradas: '', estado: 'Enviado', notas: '' });
 
@@ -192,15 +211,15 @@ const LostProjectDashboard = () => {
   const [metaPctTope, setMetaPctTope] = useState(12);
 
   // ── Activos: inventario, mobiliario, pasivos ──
-  const [mobiliario, setMobiliario] = useState(() => { try { const s = localStorage.getItem('lp_mobiliario'); if (s) return JSON.parse(s); } catch(e) {} return [
+  const [mobiliario, setMobiliario] = useState([
     { nombre: 'Estantes de exhibición', categoria: 'Mobiliario', cantidad: 4, costoUnit: 3500, fechaCompra: '2025-01-15', ubicacion: 'Tienda', id: 1 },
     { nombre: 'Computadora (punto de venta)', categoria: 'Equipo', cantidad: 1, costoUnit: 18000, fechaCompra: '2025-03-01', ubicacion: 'Tienda', id: 2 },
     { nombre: 'Cámara para contenido', categoria: 'Equipo', cantidad: 1, costoUnit: 12000, fechaCompra: '2025-06-10', ubicacion: 'Oficina', id: 3 },
     { nombre: 'Maniquíes', categoria: 'Mobiliario', cantidad: 3, costoUnit: 2800, fechaCompra: '2025-01-15', ubicacion: 'Tienda', id: 4 },
-  ]; });
+  ]);
   const [showFormMob, setShowFormMob] = useState(false);
   const [newMob, setNewMob] = useState({ nombre: '', categoria: 'Mobiliario', cantidad: 1, costoUnit: '', fechaCompra: '', ubicacion: 'Tienda' });
-  const [pasivos, setPasivos] = useState(() => { try { const s = localStorage.getItem('lp_pasivos'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
+  const [pasivos, setPasivos] = useState([]);
   const [showFormPasivo, setShowFormPasivo] = useState(false);
   const [newPasivo, setNewPasivo] = useState({ concepto: '', tipo: 'Préstamo', monto: '', montoPagado: 0, acreedor: '', fechaInicio: '', fechaVence: '', notas: '' });
   const [efectivoCaja, setEfectivoCaja] = useState(0);
@@ -208,24 +227,48 @@ const LostProjectDashboard = () => {
   const [cuentasPorCobrar, setCuentasPorCobrar] = useState(0);
 
   // Gastos variables recurrentes — estado compartido (fuente: Marketing, consumido por Gastos)
-  const [recurrentes, setRecurrentes] = useState(() => { try { const s = localStorage.getItem('lp_recurrentes'); if (s) return JSON.parse(s); } catch(e) {} return [
+  const [recurrentes, setRecurrentes] = useState([
     { mes: 0, concepto: 'Inversión Meta Ads', monto: 8500 },
     { mes: 0, concepto: 'Comisión Clip', monto: 4200 },
     { mes: 1, concepto: 'Inversión Meta Ads', monto: 9200 },
     { mes: 1, concepto: 'Comisión Clip', monto: 3500 },
     { mes: 2, concepto: 'Inversión Meta Ads', monto: 7000 },
     { mes: 2, concepto: 'Comisión Clip', monto: 2900 },
-  ]; });
+  ]);
 
-  // ════ PERSISTENCIA LOCAL ════
-  // Guardar en localStorage cuando cambian los datos
-  useEffect(() => { try { localStorage.setItem('lp_pending', JSON.stringify(pending)); } catch(e) {} }, [pending]);
-  useEffect(() => { try { localStorage.setItem('lp_fixedExpenses', JSON.stringify(fixedExpenses)); } catch(e) {} }, [fixedExpenses]);
-  useEffect(() => { try { localStorage.setItem('lp_recurrentes', JSON.stringify(recurrentes)); } catch(e) {} }, [recurrentes]);
-  useEffect(() => { try { localStorage.setItem('lp_mobiliario', JSON.stringify(mobiliario)); } catch(e) {} }, [mobiliario]);
-  useEffect(() => { try { localStorage.setItem('lp_pasivos', JSON.stringify(pasivos)); } catch(e) {} }, [pasivos]);
-  useEffect(() => { try { localStorage.setItem('lp_contentTracker', JSON.stringify(contentTracker)); } catch(e) {} }, [contentTracker]);
-  useEffect(() => { try { localStorage.setItem('lp_collabs', JSON.stringify(collabs)); } catch(e) {} }, [collabs]);
+  // ════ PERSISTENCIA SUPABASE ════
+  const [supaLoaded, setSupaLoaded] = useState(false);
+
+  // Cargar todos los datos de Supabase al iniciar
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await fetch(SUPABASE_URL + '/rest/v1/dashboard_data?select=key,value', {
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
+        });
+        const rows = await resp.json();
+        const data = {};
+        rows.forEach(r => { data[r.key] = r.value; });
+        if (data.pending) setPending(data.pending);
+        if (data.fixedExpenses) setFixedExpenses(data.fixedExpenses);
+        if (data.recurrentes) setRecurrentes(data.recurrentes);
+        if (data.mobiliario) setMobiliario(data.mobiliario);
+        if (data.pasivos) setPasivos(data.pasivos);
+        if (data.contentTracker) setContentTracker(data.contentTracker);
+        if (data.collabs) setCollabs(data.collabs);
+      } catch(e) { console.error('Supabase load error:', e); }
+      setSupaLoaded(true);
+    })();
+  }, []);
+
+  // Guardar en Supabase cuando cambian los datos (solo despues de carga inicial)
+  useEffect(() => { if (supaLoaded) supaWrite('pending', pending); }, [pending, supaLoaded]);
+  useEffect(() => { if (supaLoaded) supaWrite('fixedExpenses', fixedExpenses); }, [fixedExpenses, supaLoaded]);
+  useEffect(() => { if (supaLoaded) supaWrite('recurrentes', recurrentes); }, [recurrentes, supaLoaded]);
+  useEffect(() => { if (supaLoaded) supaWrite('mobiliario', mobiliario); }, [mobiliario, supaLoaded]);
+  useEffect(() => { if (supaLoaded) supaWrite('pasivos', pasivos); }, [pasivos, supaLoaded]);
+  useEffect(() => { if (supaLoaded) supaWrite('contentTracker', contentTracker); }, [contentTracker, supaLoaded]);
+  useEffect(() => { if (supaLoaded) supaWrite('collabs', collabs); }, [collabs, supaLoaded]);
 
   // ════ UTILS ════
   const formatMXN = (num) => {
@@ -1302,9 +1345,11 @@ const LostProjectDashboard = () => {
     const totalRecurrentesMes = recurrentesMes.reduce((a, g) => a + g.monto, 0);
 
     // Gastos del día a día
-    const [gastosDiarios, setGastosDiarios] = React.useState(() => {
-      try { const s = localStorage.getItem('lp_gastosDiarios'); return s ? JSON.parse(s) : []; } catch(e) { return []; }
-    });
+    const [gastosDiarios, setGastosDiarios] = React.useState([]);
+    // Load gastosDiarios from Supabase on mount
+    React.useEffect(() => {
+      supaRead('gastosDiarios').then(data => { if (data) setGastosDiarios(data); });
+    }, []);
     const [showFormGasto, setShowFormGasto] = React.useState(false);
     const [newGasto, setNewGasto] = React.useState({ fecha: new Date().toISOString().split('T')[0], concepto: '', categoria: 'Empaque', monto: '' });
     const totalDiariosMes = gastosDiarios.reduce((a, g) => a + g.monto, 0);
@@ -1677,7 +1722,7 @@ const LostProjectDashboard = () => {
                 if (!newGasto.concepto || !newGasto.monto) return;
                 const gastos = [...gastosDiarios, { ...newGasto, monto: parseInt(newGasto.monto) || 0 }];
                 setGastosDiarios(gastos);
-                try { localStorage.setItem('lp_gastosDiarios', JSON.stringify(gastos)); } catch(e) {}
+                supaWrite('gastosDiarios', gastos);
                 setNewGasto({ fecha: new Date().toISOString().split('T')[0], concepto: '', categoria: 'Empaque', monto: '' });
                 setShowFormGasto(false);
               }}>Guardar gasto</button>
@@ -1720,10 +1765,16 @@ const LostProjectDashboard = () => {
 
   const ComprasSection = () => {
     // Estado de compras activas e historial
-    const [comprasActivas, setComprasActivas] = React.useState(() => { try { const s = localStorage.getItem('lp_comprasActivas'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
-    const [comprasHistorial, setComprasHistorial] = React.useState(() => { try { const s = localStorage.getItem('lp_comprasHistorial'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
-    const [proveedores, setProveedores] = React.useState(() => { try { const s = localStorage.getItem('lp_proveedores'); return s ? JSON.parse(s) : []; } catch(e) { return []; } });
+    const [comprasActivas, setComprasActivas] = React.useState([]);
+    const [comprasHistorial, setComprasHistorial] = React.useState([]);
+    const [proveedores, setProveedores] = React.useState([]);
     const [showFormCompra, setShowFormCompra] = React.useState(false);
+    // Load compras data from Supabase
+    React.useEffect(() => {
+      supaRead('comprasActivas').then(d => { if (d) setComprasActivas(d); });
+      supaRead('comprasHistorial').then(d => { if (d) setComprasHistorial(d); });
+      supaRead('proveedores').then(d => { if (d) setProveedores(d); });
+    }, []);
     const [showFormProv, setShowFormProv] = React.useState(false);
 
     // KPIs calculados
@@ -1762,7 +1813,7 @@ const LostProjectDashboard = () => {
       const compra = { ...newCompra, monto: parseInt(newCompra.monto) || 0 };
       const newActivas = [...comprasActivas, compra];
       setComprasActivas(newActivas);
-      try { localStorage.setItem('lp_comprasActivas', JSON.stringify(newActivas)); } catch(e) {}
+      supaWrite('comprasActivas', newActivas);
       setNewCompra({ proveedor: '', productos: '', monto: '', metodoPago: 'Transferencia', numPedido: '', paqueteria: '', guia: '', estado: 'Pedido', comentarios: '', fechaCompra: new Date().toISOString().split('T')[0], fechaEstimadaEntrega: '' });
       setShowFormCompra(false);
     };
@@ -1774,7 +1825,7 @@ const LostProjectDashboard = () => {
       const newActivas = comprasActivas.filter((_, i) => i !== idx);
       setComprasHistorial(newHistorial);
       setComprasActivas(newActivas);
-      try { localStorage.setItem('lp_comprasHistorial', JSON.stringify(newHistorial)); localStorage.setItem('lp_comprasActivas', JSON.stringify(newActivas)); } catch(e) {}
+      supaWrite('comprasHistorial', newHistorial); supaWrite('comprasActivas', newActivas);
     };
 
     // Cambiar estado de compra
@@ -1782,7 +1833,7 @@ const LostProjectDashboard = () => {
       if (nuevoEstado === 'Entregado') { marcarEntregado(idx); return; }
       const newActivas = comprasActivas.map((c, i) => i === idx ? { ...c, estado: nuevoEstado } : c);
       setComprasActivas(newActivas);
-      try { localStorage.setItem('lp_comprasActivas', JSON.stringify(newActivas)); } catch(e) {}
+      supaWrite('comprasActivas', newActivas);
     };
 
     // Formulario nuevo proveedor
@@ -1792,7 +1843,7 @@ const LostProjectDashboard = () => {
       if (!newProv.nombre) return;
       const newProvs = [...proveedores, { ...newProv }];
       setProveedores(newProvs);
-      try { localStorage.setItem('lp_proveedores', JSON.stringify(newProvs)); } catch(e) {}
+      supaWrite('proveedores', newProvs);
       setNewProv({ nombre: '', sitioWeb: '', contacto: '', whatsapp: '', tiempoEntrega: '', condiciones: '', notas: '' });
       setShowFormProv(false);
     };
